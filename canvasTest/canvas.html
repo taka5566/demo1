@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhythm Game Notation</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="200"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const noteColors = {
+            1: 'red',
+            2: 'blue',
+            3: 'red',
+            4: 'blue',
+        };
+
+        const noteSize = {
+            1: 20,
+            2: 20,
+            3: 30,
+            4: 30,
+        };
+
+        // Game parameters
+        let measure = { numerator: 4, denominator: 4 };
+        let bpm = 240;
+        let scroll = 1;
+        const hitZoneWidth = 50;
+        const basePixelsPerBeat = 100;
+
+        console.log("Initial game parameters:", { measure, bpm, scroll, hitZoneWidth, basePixelsPerBeat });
+
+        let notation = `
+#BPMCHANGE 181.1
+#SCROLL 1.33
+#MEASURE 3/4
+301210401210301210,
+#MEASURE 4/4
+#BPMCHANGE 241.46
+#SCROLL 1
+200200100100100000002000100000002000100000200000,
+100000101010100000100000200000000200000000200000,
+100100100000500000000008000000001000000010002000,
+#BPMCHANGE 301.83
+#SCROLL 0.8
+#MEASURE 5/8
+12121,
+#MEASURE 4/4
+#BPMCHANGE 241.46
+#SCROLL 1
+200000000000200000002000100000100000100000200200,
+100000002000100000200000100000200200100000200000,
+`;
+
+        console.log("Notation input:", notation);
+
+        let measures = [];
+        let notes = [];
+        let barLines = [];
+        let gameEvents = [];
+
+        function parseNotation() {
+            notes = [];
+            barLines = [];
+            gameEvents = [];
+            let totalBeats = 0;
+            let currentScroll = 1;
+            let currentBPM = 240;
+            let currentMeasure = { numerator: 4, denominator: 4 };
+
+            console.log("Starting parseNotation function");
+
+            let notationWithStaringSpace =  notation
+            console.log(notationWithStaringSpace)
+            let lines = notationWithStaringSpace.split('\n');
+            lines.forEach((line, lineIndex) => {
+                line = line.trim();
+                console.log(`Processing line ${lineIndex}: ${line}`);
+
+                if (line.startsWith('#')) {
+                    let [command, value] = line.split(' ');
+                    console.log(`Found command: ${command}, value: ${value}`);
+
+                    switch (command) {
+                        case '#SCROLL':
+                            currentScroll = parseFloat(value);
+                            gameEvents.push({ type: 'scroll', value: currentScroll, beat: totalBeats });
+                            console.log(`Updated scroll to ${currentScroll}`);
+                            break;
+                        case '#BPMCHANGE':
+                            currentBPM = parseFloat(value);
+                            gameEvents.push({ type: 'bpm', value: currentBPM, beat: totalBeats });
+                            console.log(`Updated BPM to ${currentBPM}`);
+                            break;
+                        case '#MEASURE':
+                            let [numerator, denominator] = value.split('/');
+                            currentMeasure = { numerator: parseInt(numerator), denominator: parseInt(denominator) };
+                            gameEvents.push({ type: 'measure', value: currentMeasure, beat: totalBeats });
+                            console.log(`Updated measure to ${numerator}/${denominator}`);
+                            break;
+                    }
+                } else if (line !== '') {
+                    let measureNotes = line.split(',')[0].split('');
+                    let beatsPerBar = currentMeasure.numerator * (currentMeasure.numerator / currentMeasure.denominator);
+                    let beatsPerNote = beatsPerBar / measureNotes.length;
+
+                    console.log(`Processing measure: ${line}`);
+                    console.log(`Beats per bar: ${beatsPerBar}, Beats per note: ${beatsPerNote}`);
+
+                    measureNotes.forEach((note, noteIndex) => {
+                        if (note !== '0') {
+                            notes.push({
+                                type: parseInt(note),
+                                position: totalBeats + noteIndex * beatsPerNote,
+                                scroll: currentScroll,
+                                bpm: currentBPM
+                            });
+                            console.log(`Added note: type ${note}, position ${totalBeats + noteIndex * beatsPerNote}`);
+                        }
+                    });
+
+                    barLines.push({ position: totalBeats + beatsPerBar, scroll: currentScroll, bpm: currentBPM });
+                    console.log(`Added bar line at position ${totalBeats + beatsPerBar}`);
+                    totalBeats += beatsPerBar;
+                    console.log(`Updated total beats to ${totalBeats}`);
+                }
+            });
+
+            console.log("Finished parsing notation");
+            console.log("Final notes array:", notes);
+            console.log("Final bar lines array:", barLines);
+            console.log("Game events:", gameEvents);
+        }
+
+        parseNotation();
+
+        function drawNote(noteType, x, y) {
+            ctx.fillStyle = noteColors[noteType] || 'gray';
+            let size = noteSize[noteType] || 20;
+            ctx.beginPath();
+            ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            console.log('drawnote noteType:',noteType,'X:',x,'Y:',y)
+        }
+
+        function drawBarLine(x) {
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+
+        function drawHitZone() {
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
+            ctx.fillRect(0, 0, hitZoneWidth, canvas.height);
+        }
+
+        let startTime = null;
+        let lastLogTime = 0;
+        const LOG_INTERVAL = 1000;
+
+        function animate(timestamp) {
+            if (!startTime) {
+                startTime = timestamp;
+                console.log("Animation started");
+            }
+            let elapsedTime = (timestamp - startTime) / 1000; // seconds
+
+            // if (timestamp - lastLogTime > LOG_INTERVAL) {
+            // console.log(`Elapsed time: ${elapsedTime.toFixed(2)}s, scroll: ${scroll}, BPM: ${bpm}, measure: ${measure.numerator}/${measure.denominator}`);
+            // lastLogTime = timestamp;
+            // }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawHitZone();
+
+            // Update game parameters based on events
+            gameEvents.forEach(event => {
+                if (event.beat * (basePixelsPerBeat * event.scroll) <= elapsedTime * event.bpm * (basePixelsPerBeat * event.scroll) / 60) {
+                    switch (event.type) {
+                        case 'scroll':
+                            scroll = event.value;
+                            console.log(`Updated scroll to ${scroll} at ${elapsedTime.toFixed(2)}s`);
+                            break;
+                        case 'bpm':
+                            bpm = event.value;
+                            console.log(`Updated BPM to ${bpm} at ${elapsedTime.toFixed(2)}s`);
+                            break;
+                        case 'measure':
+                            measure = event.value;
+                            console.log(`Updated measure to ${measure.numerator}/${measure.denominator} at ${elapsedTime.toFixed(2)}s`);
+                            break;
+                    }
+                }
+            });
+
+            // Draw bar lines
+            barLines.forEach(barLine => {
+                let x = (barLine.position * (basePixelsPerBeat * barLine.scroll) - elapsedTime * barLine.bpm * (basePixelsPerBeat * barLine.scroll) / 60);
+                if (x > hitZoneWidth && x < canvas.width) {
+                    drawBarLine(x);
+                }
+            });
+
+
+
+            let noteLogCounter = 0;
+const MAX_NOTE_LOGS = 10; // Limit the number of note logs to prevent console spam
+
+
+
+            // Draw notes
+            notes.forEach(note => {
+                let x = (note.position * (basePixelsPerBeat * note.scroll) - elapsedTime * note.bpm * (basePixelsPerBeat * note.scroll) / 60);
+                
+    // Log details for notes around position 453-455
+    // if (note.position >= 453 && note.position <= 455 && noteLogCounter < MAX_NOTE_LOGS) {
+    //     console.log(`Note: type ${note.type}, position ${note.position.toFixed(3)}, scroll ${note.scroll}, bpm ${note.bpm}, calculated x: ${x.toFixed(2)}, elapsedTime: ${elapsedTime.toFixed(2)}`);
+    //     noteLogCounter++;
+    // }                
+                if (x > hitZoneWidth && x < canvas.width) {
+                    drawNote(note.type, x, canvas.height / 2);
+                }
+            });
+
+
+            //for scoll1.33, position 453.23 error:
+            // x = (453.25 *(100 * 1.33) - elapsedTime * 181.1 * (100*1.33)/60)
+
+            // if (elapsedTime % 1 < 0.016) { // Log roughly every second
+            //     console.log(`Animation frame at ${elapsedTime.toFixed(2)}s, scroll: ${scroll}, BPM: ${bpm}, measure: ${measure.numerator}/${measure.denominator}`);
+            // }
+
+            requestAnimationFrame(animate);
+        }
+
+        console.log("Starting animation");
+        animate();
+    </script>
+</body>
+</html>

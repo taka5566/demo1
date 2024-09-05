@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moving Red Circle</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="200"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const hitZoneWidth = 50;
+        const basePixelsPerBeat = 100;
+
+        // Single note definition
+        const note = {type: 1, position: 10, scroll: 1, bpm: 240};
+
+        function drawNote(x, y) {
+            ctx.fillStyle = 'red';
+            let size = 20;
+            ctx.beginPath();
+            ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawHitZone() {
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
+            ctx.fillRect(0, 0, hitZoneWidth, canvas.height);
+        }
+
+        let startTime = null;
+
+        function animate(timestamp) {
+            if (!startTime) {
+                startTime = timestamp;
+            }
+            let elapsedTime = (timestamp - startTime) / 1000; // seconds
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawHitZone();
+
+            // Calculate note position
+            let x = (note.position * (basePixelsPerBeat * note.scroll) - elapsedTime * note.bpm * (basePixelsPerBeat * note.scroll) / 60);
+            
+            // Draw note if it's in view
+            if (x > hitZoneWidth && x < canvas.width) {
+                drawNote(x, canvas.height / 2);
+            }
+
+            // Reset the animation when the note goes off-screen to the left
+            if (x < -20) {
+                startTime = timestamp;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        console.log("Starting animation");
+        animate();
+    </script>
+</body>
+</html>

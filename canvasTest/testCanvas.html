@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="200"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const noteColors = {
+            1: 'red',
+            2: 'blue',
+            3: 'red',
+            4: 'blue',
+        };
+
+        const noteSize = {
+            1: 20,
+            2: 20,
+            3: 30,
+            4: 30,
+        };
+
+
+        let gameEvents = [];
+        let measure = { numerator: 4, denominator: 4 };
+        let bpm = 240;
+        let scroll = 1;
+        const hitZoneWidth = 50;
+        const basePixelsPerBeat = 100;
+
+        const notes = [
+            
+                
+ 
+        {type: 2, position: 451.5416666666667, scroll: 1, bpm: 241.46}
+,
+{type: 2, position: 51.7083333333333, scroll: 1, bpm: 241.46}
+,{type: 1, position: 51.875, scroll: 1, bpm: 241.46}
+,{type: 2, position: 52.375, scroll: 1, bpm: 241.46}
+,{type: 1, position: 52.875, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 53.125, scroll: 1.33, bpm: 181.1}
+,{type: 2, position: 53.25, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 53.375, scroll: 1.33, bpm: 181.1}
+,{type: 2, position: 53.625, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 53.875, scroll: 1.33, bpm: 181.1}
+,{type: 2, position: 54, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 54.125, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 54.375, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 54.625, scroll: 1.33, bpm: 181.1}
+,{type: 2, position: 54.75, scroll: 1.33, bpm: 181.1}
+,{type: 1, position: 54.875, scroll: 1.33, bpm: 181.1}
+,{type: 2, position: 55.125, scroll: 1, bpm: 241.46}
+,{type: 2, position: 55.375, scroll: 1, bpm: 241.46}
+,{type: 1, position: 55.625, scroll: 1, bpm: 241.46}
+,{type: 1, position: 55.875, scroll: 1, bpm: 241.46}
+,{type: 1, position: 56.125, scroll: 1, bpm: 241.46}
+            
+        ]
+
+        const barLines = [
+        {position: 448.875, scroll: 1, bpm: 241.46}
+,
+{position: 452.875, scroll: 1, bpm: 241.46}
+,
+{position: 455.125, scroll: 1.33, bpm: 181.1}
+,
+{position: 459.125, scroll: 1, bpm: 241.46}
+        ]
+
+        function drawNote(noteType, x, y) {
+            ctx.fillStyle = noteColors[noteType] || 'gray';
+            let size = noteSize[noteType] || 20;
+            ctx.beginPath();
+            ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawBarLine(x) {
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+
+        function drawHitZone() {
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
+            ctx.fillRect(0, 0, hitZoneWidth, canvas.height);
+        }
+
+        let startTime = null;
+
+        function animate(timestamp) {
+            if (!startTime) {
+                startTime = timestamp;
+                console.log("Animation started");
+            }
+            let elapsedTime = (timestamp - startTime) / 1000; // seconds
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawHitZone();
+
+            // Update game parameters based on events
+            gameEvents.forEach(event => {
+                if (event.beat * (basePixelsPerBeat * event.scroll) <= elapsedTime * event.bpm * (basePixelsPerBeat * event.scroll) / 60) {
+                    switch (event.type) {
+                        case 'scroll':
+                            scroll = event.value;
+                            console.log(`Updated scroll to ${scroll} at ${elapsedTime.toFixed(2)}s`);
+                            break;
+                        case 'bpm':
+                            bpm = event.value;
+                            console.log(`Updated BPM to ${bpm} at ${elapsedTime.toFixed(2)}s`);
+                            break;
+                        case 'measure':
+                            measure = event.value;
+                            console.log(`Updated measure to ${measure.numerator}/${measure.denominator} at ${elapsedTime.toFixed(2)}s`);
+                            break;
+                    }
+                }
+            });
+
+            // Draw bar lines
+            barLines.forEach(barLine => {
+                let x = (barLine.position * (basePixelsPerBeat * barLine.scroll) - elapsedTime * barLine.bpm * (basePixelsPerBeat * barLine.scroll) / 60);
+                if (x > hitZoneWidth && x < canvas.width) {
+                    drawBarLine(x);
+                }
+            });
+
+            // Draw notes
+            notes.forEach(note => {
+                let x = (note.position * (basePixelsPerBeat * note.scroll) - elapsedTime * note.bpm * (basePixelsPerBeat * note.scroll) / 60);
+                if (x > hitZoneWidth && x < canvas.width) {
+                    drawNote(note.type, x, canvas.height / 2);
+                }
+            });
+
+            if (elapsedTime % 1 < 0.016) { // Log roughly every second
+                console.log(`Animation frame at ${elapsedTime.toFixed(2)}s, scroll: ${scroll}, BPM: ${bpm}, measure: ${measure.numerator}/${measure.denominator}`);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        console.log("Starting animation");
+        animate();
+    </script>
+</body>
+</html>
